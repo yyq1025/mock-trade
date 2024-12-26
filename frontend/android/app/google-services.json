@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "141802804685",
+    "project_id": "mock-trade",
+    "storage_bucket": "mock-trade.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:141802804685:android:5ca5f2eae07f9355636084",
+        "android_client_info": {
+          "package_name": "com.mockTrade.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "141802804685-38fgitos2gih2t6uav9cibve8d8n3f5j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mockTrade.app",
+            "certificate_hash": "9fe874e57c2b5fd6ab3158f9e182719ea95cd8f5"
+          }
+        },
+        {
+          "client_id": "141802804685-3vnt2g3cvfved8mb822tbernk1em33le.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDK375xYV5YdT5U3hzrrojHMz9xHeqkuk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "141802804685-3vnt2g3cvfved8mb822tbernk1em33le.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "141802804685-8l780fmi9h0233sema408mnm00c8uk99.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.mockTrade"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
