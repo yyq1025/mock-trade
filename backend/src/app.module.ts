@@ -4,18 +4,18 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { OrderModule } from './order/order.module';
-import { PusherModule } from './pusher/pusher.module';
 import { UserModule } from './user/user.module';
 import { ExchangeInfoModule } from './exchangeInfo/exchangeInfo.module';
+import { BalanceModule } from './balance/balance.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(process.env.DATABASE_URL),
     OrderModule,
-    PusherModule,
     UserModule,
     ExchangeInfoModule,
+    BalanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,19 +1,26 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import * as mongoose from 'mongoose';
-import { Order } from '../../order/schemas/order.schema';
+import { nanoid } from 'nanoid';
+import { Balance } from 'src/balance/schemas/balance.schema';
 
 export type UserDocument = mongoose.HydratedDocument<User>;
 
-@Schema()
+@Schema({
+  toJSON: { virtuals: ['balances'] },
+  toObject: { virtuals: ['balances'] },
+})
 export class User {
-  // @Prop()
-  // userId: string;
+  @Prop({ unique: true, default: () => nanoid() })
+  userId: string;
 
-  @Prop()
+  @Prop({ required: true, unique: true })
   email: string;
-
-  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Order' }] })
-  orders: Order[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.virtual('balances', {
+  ref: Balance.name,
+  localField: 'userId',
+  foreignField: 'userId',
+});

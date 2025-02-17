@@ -1,8 +1,8 @@
 export class CreateOrderDto {
-  user: string;
+  userId: string;
   symbol: string;
   orderType: string;
   side: string;
-  quantity: number;
-  price: number;
+  quantity: string;
+  price: string;
 }
