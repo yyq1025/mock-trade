@@ -1,3 +1,4 @@
+// dart format width=80
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
 // **************************************************************************
@@ -24,14 +25,11 @@ class MarketRoute extends _i6.PageRouteInfo<MarketRouteArgs> {
     String quoteAsset = 'USDT',
     List<_i6.PageRouteInfo>? children,
   }) : super(
-          MarketRoute.name,
-          args: MarketRouteArgs(
-            key: key,
-            quoteAsset: quoteAsset,
-          ),
-          rawPathParams: {'quoteAsset': quoteAsset},
-          initialChildren: children,
-        );
+         MarketRoute.name,
+         args: MarketRouteArgs(key: key, quoteAsset: quoteAsset),
+         rawPathParams: {'quoteAsset': quoteAsset},
+         initialChildren: children,
+       );
 
   static const String name = 'MarketRoute';
 
@@ -40,24 +38,18 @@ class MarketRoute extends _i6.PageRouteInfo<MarketRouteArgs> {
     builder: (data) {
       final pathParams = data.inheritedPathParams;
       final args = data.argsAs<MarketRouteArgs>(
-          orElse: () => MarketRouteArgs(
-                  quoteAsset: pathParams.getString(
-                'quoteAsset',
-                'USDT',
-              )));
-      return _i1.MarketPage(
-        key: args.key,
-        quoteAsset: args.quoteAsset,
+        orElse:
+            () => MarketRouteArgs(
+              quoteAsset: pathParams.getString('quoteAsset', 'USDT'),
+            ),
       );
+      return _i1.MarketPage(key: args.key, quoteAsset: args.quoteAsset);
     },
   );
 }
 
 class MarketRouteArgs {
-  const MarketRouteArgs({
-    this.key,
-    this.quoteAsset = 'USDT',
-  });
+  const MarketRouteArgs({this.key, this.quoteAsset = 'USDT'});
 
   final _i7.Key? key;
 
@@ -73,10 +65,7 @@ class MarketRouteArgs {
 /// [_i2.MyHomePage]
 class MyHomeRoute extends _i6.PageRouteInfo<void> {
   const MyHomeRoute({List<_i6.PageRouteInfo>? children})
-      : super(
-          MyHomeRoute.name,
-          initialChildren: children,
-        );
+    : super(MyHomeRoute.name, initialChildren: children);
 
   static const String name = 'MyHomeRoute';
 
@@ -90,21 +79,39 @@ class MyHomeRoute extends _i6.PageRouteInfo<void> {
 
 /// generated route for
 /// [_i3.SignInPage]
-class SignInRoute extends _i6.PageRouteInfo<void> {
-  const SignInRoute({List<_i6.PageRouteInfo>? children})
-      : super(
-          SignInRoute.name,
-          initialChildren: children,
-        );
+class SignInRoute extends _i6.PageRouteInfo<SignInRouteArgs> {
+  SignInRoute({
+    _i7.Key? key,
+    required dynamic Function(bool) onResult,
+    List<_i6.PageRouteInfo>? children,
+  }) : super(
+         SignInRoute.name,
+         args: SignInRouteArgs(key: key, onResult: onResult),
+         initialChildren: children,
+       );
 
   static const String name = 'SignInRoute';
 
   static _i6.PageInfo page = _i6.PageInfo(
     name,
     builder: (data) {
-      return _i3.SignInPage();
+      final args = data.argsAs<SignInRouteArgs>();
+      return _i3.SignInPage(key: args.key, onResult: args.onResult);
     },
   );
+}
+
+class SignInRouteArgs {
+  const SignInRouteArgs({this.key, required this.onResult});
+
+  final _i7.Key? key;
+
+  final dynamic Function(bool) onResult;
+
+  @override
+  String toString() {
+    return 'SignInRouteArgs{key: $key, onResult: $onResult}';
+  }
 }
 
 /// generated route for
@@ -115,14 +122,11 @@ class TradeRoute extends _i6.PageRouteInfo<TradeRouteArgs> {
     required String symbol,
     List<_i6.PageRouteInfo>? children,
   }) : super(
-          TradeRoute.name,
-          args: TradeRouteArgs(
-            key: key,
-            symbol: symbol,
-          ),
-          rawPathParams: {'symbol': symbol},
-          initialChildren: children,
-        );
+         TradeRoute.name,
+         args: TradeRouteArgs(key: key, symbol: symbol),
+         rawPathParams: {'symbol': symbol},
+         initialChildren: children,
+       );
 
   static const String name = 'TradeRoute';
 
@@ -131,20 +135,15 @@ class TradeRoute extends _i6.PageRouteInfo<TradeRouteArgs> {
     builder: (data) {
       final pathParams = data.inheritedPathParams;
       final args = data.argsAs<TradeRouteArgs>(
-          orElse: () => TradeRouteArgs(symbol: pathParams.getString('symbol')));
-      return _i4.TradePage(
-        key: args.key,
-        symbol: args.symbol,
+        orElse: () => TradeRouteArgs(symbol: pathParams.getString('symbol')),
       );
+      return _i4.TradePage(key: args.key, symbol: args.symbol);
     },
   );
 }
 
 class TradeRouteArgs {
-  const TradeRouteArgs({
-    this.key,
-    required this.symbol,
-  });
+  const TradeRouteArgs({this.key, required this.symbol});
 
   final _i7.Key? key;
 
@@ -160,17 +159,14 @@ class TradeRouteArgs {
 /// [_i5.WalletPage]
 class WalletRoute extends _i6.PageRouteInfo<void> {
   const WalletRoute({List<_i6.PageRouteInfo>? children})
-      : super(
-          WalletRoute.name,
-          initialChildren: children,
-        );
+    : super(WalletRoute.name, initialChildren: children);
 
   static const String name = 'WalletRoute';
 
   static _i6.PageInfo page = _i6.PageInfo(
     name,
     builder: (data) {
-      return _i5.WalletPage();
+      return const _i5.WalletPage();
     },
   );
 }

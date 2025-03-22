@@ -8,6 +8,8 @@ import {
   SymbolInfo,
   SymbolInfoSchema,
 } from 'src/exchangeInfo/schemas/symbolInfo.schema';
+import { FirebaseModule } from 'src/firebase/firebase.module';
+import { PusherModule } from 'src/pusher/pusher.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import {
       { name: SymbolInfo.name, schema: SymbolInfoSchema },
       { name: Balance.name, schema: BalanceSchema },
     ]),
+    FirebaseModule,
+    PusherModule,
   ],
   providers: [OrderService],
   controllers: [OrderController],

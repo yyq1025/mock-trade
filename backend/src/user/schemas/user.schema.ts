@@ -6,14 +6,14 @@ import { Balance } from 'src/balance/schemas/balance.schema';
 export type UserDocument = mongoose.HydratedDocument<User>;
 
 @Schema({
-  toJSON: { virtuals: ['balances'] },
-  toObject: { virtuals: ['balances'] },
+  toJSON: { getters: true },
+  toObject: { getters: true },
 })
 export class User {
-  @Prop({ unique: true, default: () => nanoid() })
+  @Prop({ unique: true })
   userId: string;
 
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   email: string;
 }
 
@@ -23,4 +23,5 @@ UserSchema.virtual('balances', {
   ref: Balance.name,
   localField: 'userId',
   foreignField: 'userId',
+  getters: true,
 });

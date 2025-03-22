@@ -1,19 +1,16 @@
-class SymbolInfo {
-  final String symbol;
-  final String baseAsset;
-  final String quoteAsset;
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-  SymbolInfo({
-    required this.symbol,
-    required this.baseAsset,
-    required this.quoteAsset,
-  });
+part 'symbol_info.freezed.dart';
+part 'symbol_info.g.dart';
 
-  factory SymbolInfo.fromJson(Map<String, dynamic> json) {
-    return SymbolInfo(
-      symbol: json['symbol'],
-      baseAsset: json['baseAsset'],
-      quoteAsset: json['quoteAsset'],
-    );
-  }
+@freezed
+abstract class SymbolInfo with _$SymbolInfo {
+  const factory SymbolInfo({
+    required String symbol,
+    required String baseAsset,
+    required String quoteAsset,
+  }) = _SymbolInfo;
+
+  factory SymbolInfo.fromJson(Map<String, dynamic> json) =>
+      _$SymbolInfoFromJson(json);
 }

@@ -1,17 +1,23 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Req } from '@nestjs/common';
 import { UserService } from './user.service';
+import { FirebaseAuthGuard } from 'src/firebase-auth/firebase-auth.guard';
 
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  createUser(@Body() body: any) {
-    return this.userService.createUserInitBalance(body);
+  @UseGuards(FirebaseAuthGuard)
+  async createUser(@Req() req: any) {
+    const { email, uid: userId } = req.user;
+    return this.userService.createUserWithInitBalance({ email, userId });
   }
 
   @Get()
-  findUser(@Body() body: any) {
-    return this.userService.findUser(body);
+  @UseGuards(FirebaseAuthGuard)
+  async findUser(@Req() req: any) {
+    console.log(req.user);
+    const { uid: userId } = req.user;
+    return this.userService.findUser({ userId });
   }
 }

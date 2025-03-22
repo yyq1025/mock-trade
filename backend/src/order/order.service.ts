@@ -1,15 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { WebsocketStream } from '@binance/connector-typescript';
-import { Model, Connection, Types } from 'mongoose';
+import { Model, Connection } from 'mongoose';
 import { InjectModel, InjectConnection } from '@nestjs/mongoose';
-import { decimal128Neg, decimal128Mul } from 'src/utils/decimal128.util';
+import Decimal from 'decimal.js';
+import * as Pusher from 'pusher';
 import { Order } from './schemas/order.schema';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { MiniTicker } from './dto/mini-ticker.dto';
 import { Balance } from 'src/balance/schemas/balance.schema';
 import { SymbolInfo } from 'src/exchangeInfo/schemas/symbolInfo.schema';
-import { CancelOrdersDto } from './dto/cancel-orders.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { GetOpenOrdersDto } from './dto/get-open-orders.dto';
+import { GetTradeHistoryDto } from './dto/get-trade-history.dto';
+import { PusherService } from 'src/pusher/pusher.service';
 
 @Injectable()
 export class OrderService {
@@ -20,6 +23,7 @@ export class OrderService {
     @InjectModel(SymbolInfo.name) private symbolInfoModel: Model<SymbolInfo>,
     @InjectModel(Balance.name) private balanceModel: Model<Balance>,
     @InjectConnection() private readonly connection: Connection,
+    private readonly pusherService: PusherService,
   ) {}
 
   onModuleInit() {
@@ -31,30 +35,53 @@ export class OrderService {
           try {
             const miniTickers = JSON.parse(data)['data'] as MiniTicker[];
             await this.orderModel.bulkWrite(
-              miniTickers.map(({ s: symbol, c: closePrice }) => ({
-                updateMany: {
-                  filter: {
-                    symbol,
-                    status: 'NEW',
-                    $or: [
+              miniTickers.map(({ s: symbol, c: closePrice }) => {
+                const closePriceDec = new Decimal(closePrice).toString();
+                return {
+                  updateMany: {
+                    filter: {
+                      symbol,
+                      status: 'NEW',
+                      $or: [
+                        {
+                          side: 'BUY',
+                          $expr: {
+                            $gte: [
+                              { $toDecimal: '$price' },
+                              { $toDecimal: closePriceDec },
+                            ],
+                          },
+                        },
+                        {
+                          side: 'SELL',
+                          $expr: {
+                            $lte: [
+                              { $toDecimal: '$price' },
+                              { $toDecimal: closePriceDec },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                    update: [
                       {
-                        side: 'BUY',
-                        price: { $gte: new Types.Decimal128(closePrice) },
-                      },
-                      {
-                        side: 'SELL',
-                        price: { $lte: new Types.Decimal128(closePrice) },
+                        $set: {
+                          status: 'FILLED',
+                          executionPrice: closePriceDec,
+                          exeQuoteQty: {
+                            $toString: {
+                              $multiply: [
+                                { $toDecimal: '$quantity' },
+                                { $toDecimal: closePriceDec },
+                              ],
+                            },
+                          },
+                        },
                       },
                     ],
                   },
-                  update: {
-                    $set: {
-                      status: 'FILLED',
-                      executionPrice: new Types.Decimal128(closePrice),
-                    },
-                  },
-                },
-              })),
+                };
+              }),
             );
           } catch (error) {
             console.error(error);
@@ -65,205 +92,226 @@ export class OrderService {
       combinedStreams: true,
     });
     this.wsClient.subscribe(['!miniTicker@arr']);
+
+    this.orderModel
+      .watch([{ $match: { operationType: 'update' } }], {
+        fullDocument: 'updateLookup',
+      })
+      .on('change', async (change) => {
+        if (
+          change.fullDocument.status !== 'FILLED' &&
+          change.fullDocument.status !== 'CANCELLED'
+        ) {
+          return;
+        }
+        const { userId, symbol, side, quantity, exeQuoteQty } =
+          change.fullDocument;
+        const symbolInfo = await this.symbolInfoModel.findOne({ symbol });
+        if (!symbolInfo) {
+          throw new Error('Symbol info not found');
+        }
+        const { baseAsset, quoteAsset } = symbolInfo;
+        const session = await this.connection.startSession();
+        session.startTransaction();
+        try {
+          await this.balanceModel.updateMany(
+            { userId },
+            {
+              $pull: {
+                balanceChanges: { orderId: change.fullDocument.orderId },
+              },
+            },
+            { session },
+          );
+          if (change.fullDocument.status === 'FILLED') {
+            switch (side) {
+              case 'BUY':
+                await this.balanceModel.updateOne(
+                  { userId, asset: quoteAsset },
+                  {
+                    $addToSet: {
+                      balanceChanges: {
+                        orderId: change.fullDocument.orderId,
+                        free: `-${exeQuoteQty}`,
+                        locked: '0',
+                      },
+                    },
+                  },
+                  { upsert: true, session },
+                );
+                await this.balanceModel.updateOne(
+                  { userId, asset: baseAsset },
+                  {
+                    $addToSet: {
+                      balanceChanges: {
+                        orderId: change.fullDocument.orderId,
+                        free: quantity,
+                        locked: '0',
+                      },
+                    },
+                  },
+                  { upsert: true, session },
+                );
+                break;
+              case 'SELL':
+                await this.balanceModel.updateOne(
+                  { userId, asset: baseAsset },
+                  {
+                    $addToSet: {
+                      balanceChanges: {
+                        orderId: change.fullDocument.orderId,
+                        free: `-${quantity}`,
+                        locked: '0',
+                      },
+                    },
+                  },
+                  { upsert: true, session },
+                );
+                await this.balanceModel.updateOne(
+                  { userId, asset: quoteAsset },
+                  {
+                    $addToSet: {
+                      balanceChanges: {
+                        orderId: change.fullDocument.orderId,
+                        free: exeQuoteQty,
+                        locked: '0',
+                      },
+                    },
+                  },
+                  { upsert: true, session },
+                );
+                break;
+              default:
+                throw new Error('Invalid side');
+            }
+          }
+          await session.commitTransaction();
+        } catch (error) {
+          await session.abortTransaction();
+          throw error;
+        } finally {
+          session.endSession();
+        }
+        this.pusherService
+          .getPusher()
+          .trigger(userId, 'order', change.fullDocument);
+      });
   }
 
-  async createOrder(createOrderDto: CreateOrderDto): Promise<Order> {
+  async createOrder(createOrderDto: CreateOrderDto): Promise<void> {
+    const { userId, symbol, side, price, quantity } = createOrderDto;
+    const symbolInfo = await this.symbolInfoModel.findOne({
+      symbol,
+    });
+    if (!symbolInfo) {
+      throw new Error('Invalid symbol');
+    }
+    const quoteOrderQty = Decimal.mul(price, quantity).toString();
     const session = await this.connection.startSession();
     session.startTransaction();
     try {
-      const { userId, symbol, side, price, quantity } = createOrderDto;
-      const symbolInfo = await this.symbolInfoModel.findOne({
-        symbol,
-      });
-      if (!symbolInfo) {
-        throw new Error('Invalid symbol');
-      }
-      const priceDec = new Types.Decimal128(price);
-      const quantityDec = new Types.Decimal128(quantity);
       switch (side) {
         case 'BUY':
-          const quoteOrderQty = decimal128Mul(priceDec, quantityDec);
-          const userBalance = await this.balanceModel.findOneAndUpdate(
-            {
-              userId,
-              asset: symbolInfo.quoteAsset,
-              free: { $gte: quoteOrderQty },
-            },
-            {
-              $inc: {
-                free: decimal128Neg(quoteOrderQty),
-                locked: quoteOrderQty,
-              },
-            },
+          const quoteBalance = await this.balanceModel.findOne(
+            { userId, asset: symbolInfo.quoteAsset },
+            {},
             { session },
           );
-          if (!userBalance) {
+          if (
+            !quoteBalance ||
+            new Decimal(quoteBalance.free).lt(quoteOrderQty)
+          ) {
             throw new Error('Insufficient balance');
           }
+          const buyOrder = await new this.orderModel({
+            ...createOrderDto,
+            quoteOrderQty,
+          }).save({ session });
+          await this.balanceModel.updateOne(
+            { userId, asset: symbolInfo.quoteAsset },
+            {
+              $addToSet: {
+                balanceChanges: {
+                  orderId: buyOrder.orderId,
+                  free: `-${quoteOrderQty}`,
+                  locked: quoteOrderQty,
+                },
+              },
+            },
+            { upsert: true, session },
+          );
           break;
 
         case 'SELL':
-          const userBalanceAsset = await this.balanceModel.findOneAndUpdate(
-            {
-              userId,
-              asset: symbolInfo.baseAsset,
-              free: { $gte: quantityDec },
-            },
-            {
-              $inc: {
-                free: decimal128Neg(quantityDec),
-                locked: quantityDec,
-              },
-            },
+          const baseBalance = await this.balanceModel.findOne(
+            { userId, asset: symbolInfo.baseAsset },
+            {},
             { session },
           );
-          if (!userBalanceAsset) {
+          if (!baseBalance || new Decimal(baseBalance.free).lt(quantity)) {
             throw new Error('Insufficient balance');
           }
+          const sellOrder = await new this.orderModel({
+            ...createOrderDto,
+            quoteOrderQty,
+          }).save({ session });
+          await this.balanceModel.updateOne(
+            { userId, asset: symbolInfo.baseAsset },
+            {
+              $addToSet: {
+                balanceChanges: {
+                  orderId: sellOrder.orderId,
+                  free: `-${quantity}`,
+                  locked: quantity,
+                },
+              },
+            },
+            { upsert: true, session },
+          );
           break;
 
         default:
           throw new Error('Invalid order side');
       }
-      const createdOrder = new this.orderModel({
-        ...createOrderDto,
-        price: priceDec,
-        quantity: quantityDec,
-      });
-      const order = await createdOrder.save({ session });
       await session.commitTransaction();
-      return order;
     } catch (error) {
       await session.abortTransaction();
       throw error;
     } finally {
       session.endSession();
     }
+  }
+
+  async getOpenOrders(getOpenOrdersDto: GetOpenOrdersDto): Promise<Order[]> {
+    const { userId } = getOpenOrdersDto;
+    return this.orderModel
+      .find({ userId, status: 'NEW' })
+      .populate('symbolInfo')
+      .exec();
+  }
+
+  async getTradeHistory(
+    getTradeHistoryDto: GetTradeHistoryDto,
+  ): Promise<Order[]> {
+    const { userId } = getTradeHistoryDto;
+    return this.orderModel
+      .find({ userId, status: 'FILLED' })
+      .populate('symbolInfo')
+      .exec();
   }
 
   async cancelOrder(cancelOrderDto: CancelOrderDto): Promise<void> {
-    const session = await this.connection.startSession();
-    session.startTransaction();
-    try {
-      const { userId, orderId } = cancelOrderDto;
-      const order = await this.orderModel.findOneAndUpdate(
-        { userId, orderId, status: 'NEW' },
-        {
-          $set: {
-            status: 'CANCELLED',
-          },
+    const { userId, orderId } = cancelOrderDto;
+    const order = await this.orderModel.findOneAndUpdate(
+      { userId, orderId, status: 'NEW' },
+      {
+        $set: {
+          status: 'CANCELLED',
         },
-      );
-      if (!order) {
-        throw new Error('Invalid order');
-      }
-      const symbolInfo = await this.symbolInfoModel.findOne({
-        symbol: order.symbol,
-      });
-      if (!symbolInfo) {
-        throw new Error('Invalid symbol');
-      }
-      switch (order.side) {
-        case 'BUY':
-          const quoteLockedQty = decimal128Mul(order.price, order.quantity);
-          await this.balanceModel.updateOne(
-            { userId, asset: symbolInfo.quoteAsset },
-            {
-              $inc: {
-                free: quoteLockedQty,
-                locked: decimal128Neg(quoteLockedQty),
-              },
-            },
-            { session },
-          );
-          break;
-        case 'SELL':
-          await this.balanceModel.updateOne(
-            { userId, asset: symbolInfo.baseAsset },
-            {
-              $inc: {
-                free: order.quantity,
-                locked: decimal128Neg(order.quantity),
-              },
-            },
-            { session },
-          );
-          break;
-        default:
-          throw new Error('Invalid side');
-      }
-      await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
-  }
-
-  async cancelOrders(cancelOrdersDto: CancelOrdersDto): Promise<void> {
-    const session = await this.connection.startSession();
-    session.startTransaction();
-    try {
-      const { userId, symbol } = cancelOrdersDto;
-      const symbolInfo = await this.symbolInfoModel.findOne({ symbol });
-      if (!symbolInfo) {
-        throw new Error('Invalid symbol');
-      }
-      const orders = await this.orderModel.find({
-        userId,
-        symbol,
-        status: 'NEW',
-      });
-      await this.orderModel.updateMany(
-        {
-          userId,
-          symbol,
-          status: 'NEW',
-        },
-        {
-          $set: {
-            status: 'CANCELLED',
-          },
-        },
-      );
-      for (const order of orders) {
-        switch (order.side) {
-          case 'BUY':
-            const quoteLockedQty = decimal128Mul(order.price, order.quantity);
-            await this.balanceModel.updateOne(
-              { userId, asset: symbolInfo.quoteAsset },
-              {
-                $inc: {
-                  free: quoteLockedQty,
-                  locked: decimal128Neg(quoteLockedQty),
-                },
-              },
-              { session },
-            );
-            break;
-          case 'SELL':
-            await this.balanceModel.updateOne(
-              { userId, asset: symbolInfo.baseAsset },
-              {
-                $inc: {
-                  free: order.quantity,
-                  locked: decimal128Neg(order.quantity),
-                },
-              },
-              { session },
-            );
-            break;
-          default:
-            throw new Error('Invalid side');
-        }
-      }
-      await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
+      },
+    );
+    if (!order) {
+      throw new Error('Invalid order');
     }
   }
 }

@@ -14,7 +14,6 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
 
-  english_words: ^4.0.0
   web_socket_channel: ^3.0.1
   flutter_dotenv: ^5.2.1
   dio: ^5.7.0
@@ -26,13 +25,26 @@ dependencies:
   firebase_ui_auth: ^1.16.0
   firebase_ui_oauth_google: ^1.4.0
   flutter_riverpod: ^2.6.1
+  decimal: ^3.0.2
+  flutter_form_builder: ^9.7.0
+  form_builder_validators: ^11.1.2
+  riverpod_annotation: ^2.6.1
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.9.0
+  pusher_channels_flutter: ^2.5.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^2.0.0
+  flutter_lints: ^5.0.0
   auto_route_generator: ^9.0.0
+  riverpod_generator: ^2.6.5
+  build_runner: ^2.4.15
+  custom_lint: ^0.7.5
+  riverpod_lint: ^2.6.5
+  freezed: ^3.0.4
+  json_serializable: ^6.9.4
 
 flutter:
   uses-material-design: true

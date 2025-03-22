@@ -1,13 +1,22 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:mock_trade/src/providers.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../wallet/providers/balances_provider.dart';
+import 'order_form.dart';
+import 'providers/open_orders_provider.dart';
+import 'providers/trade_history_provider.dart';
 
 @RoutePage()
-class TradePage extends StatelessWidget {
+class TradePage extends ConsumerWidget {
   TradePage({
-    Key? key,
+    super.key,
     @PathParam('symbol') required this.symbol,
-  }) : super(key: key);
+  });
   final String symbol;
   late final WebViewController controller = _initController();
 
@@ -49,13 +58,37 @@ class TradePage extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ticker = ref.watch(binanceTickersProvider).valueOrNull?[symbol];
+    final symbolInfo = ref.watch(exchangeInfoProvider).valueOrNull?[symbol];
+    ref.listen(tradeHistoryProvider, (previous, tradeHistory) {
+      if (previous?.valueOrNull != null) {
+        tradeHistory.valueOrNull
+            ?.where((trade) => !previous!.value!.contains(trade))
+            .forEach((trade) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '${trade.side} ${trade.quantity} ${trade.symbolInfo.baseAsset} Filled @ ${trade.executionPrice} ${trade.symbolInfo.quoteAsset}'),
+              showCloseIcon: true,
+            ),
+          );
+        });
+      }
+    });
+    if (ticker == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(symbol)),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           elevation: 1,
-          title: Text(symbol),
+          title: Text('${symbolInfo?.baseAsset}/${symbolInfo?.quoteAsset}',
+              style: TextStyle(fontWeight: FontWeight.bold)),
         ),
         body: Column(
           children: [
@@ -74,14 +107,14 @@ class TradePage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '101,093.99',
+                                  '${ticker.lastPrice}',
                                   style: TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.red),
                                 ),
                                 Text(
-                                  '-2,789.91 (-2.69%)',
+                                  '${ticker.lastPrice - ticker.openPrice} (${(((ticker.lastPrice - ticker.openPrice) * Decimal.fromInt(100)) / ticker.openPrice).toDouble().toStringAsFixed(2)}%)',
                                   style: TextStyle(color: Colors.red),
                                 ),
                               ],
@@ -99,7 +132,7 @@ class TradePage extends StatelessWidget {
                                     Text('24h High',
                                         style:
                                             TextStyle(color: Colors.blueGrey)),
-                                    Text('105,350.00'),
+                                    Text('${ticker.highPrice}'),
                                   ],
                                 ),
                                 Row(
@@ -109,27 +142,29 @@ class TradePage extends StatelessWidget {
                                     Text('24h Low',
                                         style:
                                             TextStyle(color: Colors.blueGrey)),
-                                    Text('98,802.00'),
+                                    Text('${ticker.lowPrice}'),
                                   ],
                                 ),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('24h Vol. (BTC)',
+                                    Text('24h Vol. (${symbolInfo?.baseAsset})',
                                         style:
                                             TextStyle(color: Colors.blueGrey)),
-                                    Text('52.88K'),
+                                    Text(NumberFormat.compact(locale: "en_US")
+                                        .format(ticker.volume)),
                                   ],
                                 ),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('24h Vol. (USDT)',
+                                    Text('24h Vol. (${symbolInfo?.quoteAsset})',
                                         style:
                                             TextStyle(color: Colors.blueGrey)),
-                                    Text('5.405B'),
+                                    Text(NumberFormat.compact(locale: "en_US")
+                                        .format(ticker.quoteVolume)),
                                   ],
                                 ),
                               ],
@@ -153,7 +188,6 @@ class TradePage extends StatelessWidget {
                         tabAlignment: TabAlignment.start,
                         tabs: [
                           Tab(text: 'Open Orders'),
-                          Tab(text: 'Order History'),
                           Tab(text: 'Trade History'),
                           Tab(text: 'Funds'),
                         ],
@@ -163,10 +197,9 @@ class TradePage extends StatelessWidget {
                 ],
                 body: TabBarView(
                   children: [
-                    ListView(children: [Placeholder()]),
-                    ListView(children: [Placeholder()]),
-                    ListView(children: [Placeholder()]),
-                    ListView(children: [Placeholder()]),
+                    OpenOrdersList(),
+                    TradeHistoryList(),
+                    BalancesList()
                   ],
                 ),
               ),
@@ -187,26 +220,17 @@ class TradePage extends StatelessWidget {
                               context: context,
                               builder: (context) {
                                 return SizedBox(
-                                  height: 400,
+                                  height: 450,
                                   width: double.infinity,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      children: [
-                                        _ActionButton(
-                                            initialAction: ActionType.buy),
-                                        SizedBox(height: 16),
-                                        TextField(
-                                          decoration: InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              labelText: 'Price'),
-                                        ),
-                                        SizedBox(height: 16),
-                                        TextField(),
-                                        SizedBox(height: 16),
-                                        TextField(),
-                                      ],
-                                    ),
+                                  child: OrderForm(
+                                    initialValues: {
+                                      'symbol': symbol,
+                                      'side': 'BUY',
+                                      'orderType': 'LIMIT',
+                                    },
+                                    onfinished: () {
+                                      Navigator.of(context).pop();
+                                    },
                                   ),
                                 );
                               });
@@ -223,7 +247,26 @@ class TradePage extends StatelessWidget {
                           backgroundColor: Colors.red,
                           padding: EdgeInsets.symmetric(vertical: 12),
                         ),
-                        onPressed: () {},
+                        onPressed: () {
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return SizedBox(
+                                  height: 450,
+                                  width: double.infinity,
+                                  child: OrderForm(
+                                    initialValues: {
+                                      'symbol': symbol,
+                                      'side': 'SELL',
+                                      'orderType': 'LIMIT',
+                                    },
+                                    onfinished: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                  ),
+                                );
+                              });
+                        },
                         child: Text('Sell',
                             style:
                                 TextStyle(color: Colors.white, fontSize: 16)),
@@ -262,50 +305,87 @@ class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-enum ActionType {
-  buy,
-  sell,
-}
-
-class _ActionButton extends StatefulWidget {
-  const _ActionButton({required this.initialAction});
-  final ActionType initialAction;
-  @override
-  State<_ActionButton> createState() => _ActionButtonState();
-}
-
-class _ActionButtonState extends State<_ActionButton> {
-  late ActionType selectedAction;
+class OpenOrdersList extends ConsumerWidget {
+  const OpenOrdersList({super.key});
 
   @override
-  void initState() {
-    super.initState();
-    selectedAction = widget.initialAction;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final openOrders = ref.watch(openOrdersProvider).valueOrNull;
+    return openOrders == null
+        ? Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: () => ref.refresh(openOrdersProvider.future),
+            child: ListView.separated(
+              itemCount: openOrders.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final order = openOrders[index];
+                return ListTile(
+                  title: Text(
+                      '${order.side} ${order.symbolInfo.baseAsset}/${order.symbolInfo.quoteAsset}'),
+                  subtitle: Text(
+                      '${order.quantity} ${order.symbolInfo.baseAsset} @ ${order.price} ${order.symbolInfo.quoteAsset}'),
+                  trailing: FilledButton.tonal(
+                      onPressed: () {
+                        ref
+                            .read(openOrdersProvider.notifier)
+                            .cancelOrder(order.orderId);
+                      },
+                      child: Text('Cancel')),
+                );
+              },
+            ),
+          );
   }
+}
+
+class TradeHistoryList extends ConsumerWidget {
+  const TradeHistoryList({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: SegmentedButton(
-        style: SegmentedButton.styleFrom(
-          selectedBackgroundColor:
-              selectedAction == ActionType.buy ? Colors.green : Colors.red,
-          selectedForegroundColor: Colors.white,
-          foregroundColor: Colors.blueGrey,
-        ),
-        showSelectedIcon: false,
-        segments: [
-          ButtonSegment(value: ActionType.buy, label: Text('Buy')),
-          ButtonSegment(value: ActionType.sell, label: Text('Sell')),
-        ],
-        selected: {selectedAction},
-        onSelectionChanged: (Set<ActionType> newSelection) {
-          setState(() {
-            selectedAction = newSelection.first;
-          });
-        },
-      ),
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tradeHistory = ref.watch(tradeHistoryProvider).valueOrNull;
+    return tradeHistory == null
+        ? Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: () => ref.refresh(tradeHistoryProvider.future),
+            child: ListView.builder(
+              itemCount: tradeHistory.length,
+              itemBuilder: (context, index) {
+                final trade = tradeHistory[index];
+                return ListTile(
+                  title: Text(
+                      '${trade.side} ${trade.symbolInfo.baseAsset}/${trade.symbolInfo.quoteAsset}'),
+                  subtitle: Text(
+                      '${trade.quantity} ${trade.symbolInfo.baseAsset} @ ${trade.executionPrice} ${trade.symbolInfo.quoteAsset}'),
+                );
+              },
+            ),
+          );
+  }
+}
+
+class BalancesList extends ConsumerWidget {
+  const BalancesList({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final balances = ref.watch(balancesProvider).valueOrNull;
+    return balances == null
+        ? Center(child: CircularProgressIndicator())
+        : RefreshIndicator(
+            onRefresh: () => ref.refresh(balancesProvider.future),
+            child: ListView.separated(
+              itemCount: balances.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final balance = balances[index];
+                return ListTile(
+                  title: Text(balance.asset),
+                  subtitle: Text(balance.free.toString()),
+                );
+              },
+            ),
+          );
   }
 }

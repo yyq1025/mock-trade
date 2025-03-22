@@ -1,17 +1,14 @@
-import 'dart:convert';
-
 import 'package:auto_route/auto_route.dart';
+import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:mock_trade/main.gr.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'market_service.dart';
-import 'models/market_data.dart';
-import 'models/market_update.dart';
+import '../../providers.dart';
 
 @RoutePage()
-class MarketPage extends StatefulWidget {
+class MarketPage extends ConsumerStatefulWidget {
   const MarketPage({
     super.key,
     @PathParam('quoteAsset') this.quoteAsset = 'USDT',
@@ -19,18 +16,13 @@ class MarketPage extends StatefulWidget {
   final String quoteAsset;
 
   @override
-  State<MarketPage> createState() => _MarketPageState();
+  ConsumerState<MarketPage> createState() => _MarketPageState();
 }
 
-class _MarketPageState extends State<MarketPage>
+class _MarketPageState extends ConsumerState<MarketPage>
     with SingleTickerProviderStateMixin {
-  late WebSocketChannel _channel;
-  Map<String, MarketData> _marketData = {};
-  Map<String, MarketData> _filteredData = {};
   final TextEditingController _searchController = TextEditingController();
-  final MarketService _marketService = MarketService();
   late TabController _tabController;
-  bool _isLoading = true;
   String _searchQuery = '';
   String _selectedQuoteAsset = 'USDT';
 
@@ -50,7 +42,6 @@ class _MarketPageState extends State<MarketPage>
   @override
   void initState() {
     super.initState();
-    print('quoteAsset: ${widget.quoteAsset}');
     final initialIndex = quoteAssets.indexOf(widget.quoteAsset);
     _tabController = TabController(
       length: quoteAssets.length,
@@ -58,113 +49,43 @@ class _MarketPageState extends State<MarketPage>
       initialIndex: initialIndex,
     );
     _tabController.addListener(_onTabChange);
-    _connectToWebSocket();
-    _fetchExchangeInfo();
-    _fetchInitMarketData();
     _searchController.addListener(_onSearchChange);
   }
 
-  Future<void> _fetchExchangeInfo() async {
-    try {
-      final symbols = await _marketService.fetchExchangeInfo();
-      final marketDataEntries = symbols.map((symbol) {
-        return MapEntry(symbol.symbol, MarketData.fromSymbolInfo(symbol));
-      });
-      setState(() {
-        _marketData = Map.fromEntries(marketDataEntries);
-        _filteredData = Map.fromEntries(marketDataEntries);
-      });
-    } catch (e) {
-      print('Error fetching exchange info: $e');
-    }
-  }
-
-  Future<void> _fetchInitMarketData() async {
-    final initData = await _marketService.fetchInitMarketData();
-    for (var data in initData) {
-      final symbol = data.symbol;
-      if (_marketData.containsKey(symbol)) {
-        _marketData[symbol]!.init(data);
-      }
-    }
-    setState(() {
-      _filteredData = Map.of(_marketData);
-      _isLoading = false;
-    });
-    _filterList();
-  }
-
-  void _connectToWebSocket() {
-    _channel = WebSocketChannel.connect(
-      Uri.parse('wss://data-stream.binance.vision/ws/!miniTicker@arr'),
-    );
-    _channel.stream.listen((data) {
-      if (data == 'ping') {
-        _channel.sink.add('pong');
-        return;
-      }
-
-      final List<dynamic> tickerData = jsonDecode(data);
-      final marketUpdates = tickerData.map((json) {
-        return MarketUpdate.fromJson(json);
-      }).toList();
-      setState(() {
-        for (var update in marketUpdates) {
-          if (_marketData.containsKey(update.symbol)) {
-            _marketData[update.symbol]!.update(update);
-          }
-        }
-      });
-    });
-  }
-
   void _onTabChange() {
-    _selectedQuoteAsset = quoteAssets[_tabController.index];
-    _filterList();
+    setState(() {
+      _selectedQuoteAsset = quoteAssets[_tabController.index];
+    });
     context.router.replaceNamed('/market/$_selectedQuoteAsset');
   }
 
   void _onSearchChange() {
-    _searchQuery = _searchController.text.toLowerCase();
-    _filterList();
-  }
-
-  void _filterList() {
     setState(() {
-      _filteredData = Map.fromEntries(_marketData.entries.where((entry) {
-        final crypto = entry.value;
-        return crypto.quoteAsset == _selectedQuoteAsset &&
-            (crypto.symbol.toLowerCase().contains(_searchQuery) ||
-                crypto.baseAsset.toLowerCase().contains(_searchQuery) ||
-                crypto.quoteAsset.toLowerCase().contains(_searchQuery));
-      }));
+      _searchQuery = _searchController.text;
     });
   }
 
   @override
   void dispose() {
-    _channel.sink.close();
     _searchController.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  Color _getChangeColor(double change) {
-    return change < 0 ? Colors.red : Colors.green;
-  }
-
   @override
   Widget build(BuildContext context) {
+    final symbolInfos = ref.watch(exchangeInfoProvider).valueOrNull;
+    final binanceTickers = ref.watch(binanceTickersProvider).valueOrNull;
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           "Market",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        centerTitle: true,
+        automaticallyImplyLeading: false,
         elevation: 1,
       ),
-      body: _isLoading
+      body: (symbolInfos == null || binanceTickers == null)
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -189,9 +110,7 @@ class _MarketPageState extends State<MarketPage>
                   tabs: quoteAssets.map((e) => Tab(text: e)).toList(),
                 ),
                 Expanded(
-                  child: _filteredData.isEmpty
-                      ? const Center(child: Text("No data found"))
-                      : _getMarketList(),
+                  child: _getMarketList(),
                 ),
               ],
             ),
@@ -199,23 +118,32 @@ class _MarketPageState extends State<MarketPage>
   }
 
   ListView _getMarketList() {
-    final marketList = _filteredData.values.toList();
-    marketList.sort((a, b) => b.volume.compareTo(a.volume));
+    final symbolInfos = ref.watch(exchangeInfoProvider).valueOrNull;
+    final binanceTickers =
+        ref.watch(binanceTickersProvider).valueOrNull!.values;
+
+    final filteredTickers = binanceTickers
+        .where((ticker) =>
+            ticker.symbol.endsWith(_selectedQuoteAsset) &&
+            ticker.symbol.toUpperCase().contains(_searchQuery.toUpperCase()) &&
+            symbolInfos!.containsKey(ticker.symbol))
+        .toList();
+    filteredTickers.sort((a, b) => b.quoteVolume.compareTo(a.quoteVolume));
     return ListView.builder(
-      itemCount: marketList.length,
+      itemCount: filteredTickers.length,
       itemBuilder: (context, index) {
-        final data = marketList[index];
+        final data = filteredTickers[index];
         return ListTile(
           onTap: () => {
             context.router.push(TradeRoute(symbol: data.symbol)),
           },
           title: Text.rich(
             TextSpan(
-              text: data.baseAsset,
+              text: symbolInfos![data.symbol]?.baseAsset,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               children: [
                 TextSpan(
-                  text: " /${data.quoteAsset}",
+                  text: " /${symbolInfos[data.symbol]?.quoteAsset}",
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.blueGrey,
@@ -226,22 +154,23 @@ class _MarketPageState extends State<MarketPage>
             ),
           ),
           subtitle: Text(
-            NumberFormat.compact(locale: "en_US", explicitSign: false)
-                .format(data.volume),
+            NumberFormat.compact(locale: "en_US").format(data.quoteVolume),
             style: const TextStyle(color: Colors.blueGrey),
           ),
           trailing: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                data.price.toString(),
+                data.lastPrice.toString(),
                 style:
                     const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               Text(
-                "${data.percentChange.toStringAsFixed(2)}%",
+                "${(((data.lastPrice - data.openPrice) * Decimal.fromInt(100)) / data.openPrice).toDouble().toStringAsFixed(2)}%",
                 style: TextStyle(
-                  color: _getChangeColor(data.percentChange),
+                  color: data.lastPrice < data.openPrice
+                      ? Colors.red
+                      : Colors.green,
                   fontWeight: FontWeight.bold,
                 ),
               ),

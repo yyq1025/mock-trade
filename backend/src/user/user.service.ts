@@ -3,7 +3,7 @@ import { Model, Connection, Types } from 'mongoose';
 import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Balance } from 'src/balance/schemas/balance.schema';
+import { Balance, BalanceChange } from 'src/balance/schemas/balance.schema';
 import { GetUserDto } from './dto/get-user.dto';
 
 @Injectable()
@@ -14,20 +14,26 @@ export class UserService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
-  async createUserInitBalance(createUserDto: CreateUserDto): Promise<User> {
+  async createUserWithInitBalance(createUserDto: CreateUserDto): Promise<void> {
     const session = await this.connection.startSession();
     session.startTransaction();
     try {
       const createdUser = new this.userModel(createUserDto);
       const user = await createdUser.save({ session });
-      const balance = new this.balanceModel({
-        userId: user.userId,
-        asset: 'USDT',
-        free: new Types.Decimal128('1000000'),
-      });
-      await balance.save({ session });
+      await this.balanceModel.updateOne(
+        { userId: user.userId, asset: 'USDT' },
+        {
+          $addToSet: {
+            balanceChanges: {
+              orderId: user.userId,
+              free: '1000000',
+              locked: '0',
+            },
+          },
+        },
+        { upsert: true, session },
+      );
       await session.commitTransaction();
-      return user;
     } catch (error) {
       await session.abortTransaction();
       throw error;

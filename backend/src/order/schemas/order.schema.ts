@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 import { nanoid } from 'nanoid';
 import { User } from '../../user/schemas/user.schema';
+import { SymbolInfo } from 'src/exchangeInfo/schemas/symbolInfo.schema';
 
 export type OrderDocument = HydratedDocument<Order>;
 
@@ -21,7 +22,11 @@ export enum OrderStatus {
   CANCELLED = 'CANCELLED',
 }
 
-@Schema({ timestamps: true, toObject: { virtuals: ['user'] } })
+@Schema({
+  timestamps: true,
+  toObject: { getters: false, virtuals: ['user'] },
+  toJSON: { getters: true, virtuals: ['symbolInfo'] },
+})
 export class Order {
   @Prop({ unique: true, default: () => nanoid() })
   orderId: string;
@@ -41,17 +46,20 @@ export class Order {
   @Prop({ type: String, enum: OrderStatus, default: OrderStatus.NEW })
   status: OrderStatus;
 
-  @Prop({ type: Types.Decimal128, required: false })
-  quantity: Types.Decimal128;
+  @Prop({ type: String, required: false })
+  quantity: string;
 
-  @Prop({ required: false })
-  quoteOrderQty: number;
+  @Prop({ type: String, required: false })
+  quoteOrderQty: string;
 
-  @Prop({ type: Types.Decimal128, required: false })
-  price: Types.Decimal128;
+  @Prop({ type: String, required: false })
+  price: string;
 
-  @Prop({ type: Types.Decimal128, required: false })
-  executionPrice: Types.Decimal128;
+  @Prop({ type: String, required: false })
+  executionPrice: string;
+
+  @Prop({ type: String, required: false })
+  exeQuoteQty: string;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);
@@ -60,5 +68,12 @@ OrderSchema.virtual('user', {
   ref: User.name,
   localField: 'userId',
   foreignField: 'userId',
+  justOne: true,
+});
+
+OrderSchema.virtual('symbolInfo', {
+  ref: SymbolInfo.name,
+  localField: 'symbol',
+  foreignField: 'symbol',
   justOne: true,
 });
