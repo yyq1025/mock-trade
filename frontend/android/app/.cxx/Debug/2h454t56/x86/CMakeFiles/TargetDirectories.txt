@@ -1,2 +1,0 @@
-D:/mocktrade/frontend/android/app/.cxx/Debug/2h454t56/x86/CMakeFiles/edit_cache.dir
-D:/mocktrade/frontend/android/app/.cxx/Debug/2h454t56/x86/CMakeFiles/rebuild_cache.dir
