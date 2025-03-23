@@ -14,7 +14,7 @@ build_backend:
     - cd backend
     - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
     - echo "$CI_DEPLOY_PASSWORD" | docker login $CI_REGISTRY -u $CI_DEPLOY_USER --password-stdin
-    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME .
+    - docker build --platform linux/arm64/v8 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME .
     - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
   when: manual
 
@@ -28,3 +28,4 @@ deploy_backend:
     - docker stop backend || true
     - docker rm backend || true
     - docker run -d --name backend -p 3000:80 --env-file $BACKEND_ENV -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_CREDENTIAL_PATH $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
+  when: manual
