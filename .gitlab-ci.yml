@@ -7,6 +7,8 @@ stages:
 
 build_backend:
   stage: build
+  tags:
+    - prod-build
   image: docker:latest
   services:
     - docker:dind
@@ -14,7 +16,7 @@ build_backend:
     - cd backend
     - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
     - echo "$CI_DEPLOY_PASSWORD" | docker login $CI_REGISTRY -u $CI_DEPLOY_USER --password-stdin
-    - docker build --platform linux/arm64/v8 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME .
+    - docker build -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME .
     - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
   when: manual
 
