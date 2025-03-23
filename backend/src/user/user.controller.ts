@@ -16,7 +16,6 @@ export class UserController {
   @Get()
   @UseGuards(FirebaseAuthGuard)
   async findUser(@Req() req: any) {
-    console.log(req.user);
     const { uid: userId } = req.user;
     return this.userService.findUser({ userId });
   }
