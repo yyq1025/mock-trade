@@ -18,7 +18,7 @@ build_backend:
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/backend"
       --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_TAG}"
+      --destination "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_REF_NAME}"
   when: manual
 
 deploy_backend:
