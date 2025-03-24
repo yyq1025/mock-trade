@@ -1,5 +1,5 @@
 variables:
-  GOOGLE_CREDENTIAL_PATH: "./gcloud-service-key.json"
+  GOOGLE_CREDENTIAL_PATH: "gcloud-service-key.json"
 
 stages:
   - build
@@ -7,19 +7,15 @@ stages:
 
 build_backend:
   stage: build
-  tags:
-    - docker
-  image:
-    name: gcr.io/kaniko-project/executor:v1.23.2-debug
-    entrypoint: [""]
+  image: docker:latest
   script:
     - cd backend
     - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
-    - /kaniko/executor
-      --context "${CI_PROJECT_DIR}/backend"
-      --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_REF_NAME}"
+    - echo "$CI_DEPLOY_PASSWORD" | docker login $CI_REGISTRY -u $CI_DEPLOY_USER --password-stdin
+    - docker build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME .
+    - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
   when: manual
+
 
 deploy_backend:
   stage: deploy
@@ -30,5 +26,10 @@ deploy_backend:
     - docker pull $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
     - docker stop backend || true
     - docker rm backend || true
-    - docker run -d --name backend -p 80:3000 --env-file $BACKEND_ENV -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_CREDENTIAL_PATH $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
+    - docker run -d 
+      --name backend 
+      -p 80:3000 
+      --env-file $BACKEND_ENV 
+      -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_CREDENTIAL_PATH 
+      $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
   when: manual
