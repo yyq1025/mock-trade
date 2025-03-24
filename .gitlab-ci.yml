@@ -8,6 +8,8 @@ stages:
 build_backend:
   stage: build
   image: docker:latest
+  services:
+    - docker:dind
   script:
     - cd backend
     - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
