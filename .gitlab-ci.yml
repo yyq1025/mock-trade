@@ -7,6 +7,8 @@ stages:
 
 build_frontend:
   stage: build
+  tags:
+    - docker
   image: ghcr.io/cirruslabs/flutter:latest
   script:
     - cd frontend
@@ -14,7 +16,7 @@ build_frontend:
     - flutter build web --release --dart-define-from-file=$FRONTEND_ENV
   artifacts:
     paths:
-      - frontend/build/web
+      - frontend/build/web/
   when: manual
 
 build_backend:
@@ -30,6 +32,18 @@ build_backend:
     - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME --push .
   when: manual
 
+
+deploy_frontend:
+  stage: deploy
+  dependencies:
+    - build_frontend
+  script:
+    - mkdir public
+    - cp -R frontend/build/web/* public/
+  artifacts:
+    paths:
+      - public
+  when: manual
 
 deploy_backend:
   stage: deploy
