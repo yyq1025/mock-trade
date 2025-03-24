@@ -8,10 +8,6 @@ stages:
 build_frontend:
   stage: build
   image: ghcr.io/cirruslabs/flutter:latest
-  before_script:
-    - flutter channel stable
-    - flutter upgrade
-    - flutter config --enable-web
   script:
     - cd frontend
     - flutter pub get
