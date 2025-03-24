@@ -5,6 +5,22 @@ stages:
   - build
   - deploy
 
+build_frontend:
+  stage: build
+  image: ghcr.io/cirruslabs/flutter:latest
+  before_script:
+    - flutter channel stable
+    - flutter upgrade
+    - flutter config --enable-web
+  script:
+    - cd frontend
+    - flutter pub get
+    - flutter build web --release --dart-define-from-file=$FRONTEND_ENV
+  artifacts:
+    paths:
+      - frontend/build/web
+  when: manual
+
 build_backend:
   stage: build
   image: docker:latest
