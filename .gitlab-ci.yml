@@ -33,7 +33,7 @@ build_backend:
   when: manual
 
 
-deploy_frontend:
+pages:
   stage: deploy
   dependencies:
     - build_frontend
