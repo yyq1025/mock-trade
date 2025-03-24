@@ -15,8 +15,7 @@ build_backend:
     - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
     - echo "$CI_DEPLOY_PASSWORD" | docker login $CI_REGISTRY -u $CI_DEPLOY_USER --password-stdin
     - docker buildx create --driver docker-container --use
-    - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME .
-    - docker push $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
+    - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME --push .
   when: manual
 
 
