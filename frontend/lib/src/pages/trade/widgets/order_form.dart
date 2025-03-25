@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'providers/open_orders_provider.dart';
+import '../providers/open_orders_provider.dart';
 
 class OrderForm extends ConsumerStatefulWidget {
   final Map<String, dynamic> initialValues;
@@ -69,6 +69,7 @@ class _OrderFormState extends ConsumerState<OrderForm> {
                 child: const Text('Submit'),
               ),
             ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(

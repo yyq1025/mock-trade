@@ -10,6 +10,9 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 
 import 'pages/market/models/symbol_info.dart';
+import 'pages/trade/providers/open_orders_provider.dart';
+import 'pages/trade/providers/trade_history_provider.dart';
+import 'pages/wallet/providers/balances_provider.dart';
 
 part 'providers.g.dart';
 
@@ -51,19 +54,64 @@ Stream<User?> authState(Ref ref) {
 Future<PusherChannelsFlutter> pusher(Ref ref) async {
   final pusher = PusherChannelsFlutter.getInstance();
   ref.onDispose(() async {
+    print('Disconnecting from Pusher');
     await pusher.disconnect();
   });
   await pusher.init(
-    apiKey: const String.fromEnvironment('PUSHER_KEY'),
-    cluster: const String.fromEnvironment('PUSHER_CLUSTER'),
-  );
+      apiKey: const String.fromEnvironment('PUSHER_KEY'),
+      cluster: const String.fromEnvironment('PUSHER_CLUSTER'),
+      onEvent: (event) {
+        if (event.eventName == 'order') {
+          ref.invalidate(openOrdersProvider);
+          ref.invalidate(balancesProvider);
+          if (event.data['status'] == 'FILLED') {
+            ref.invalidate(tradeHistoryProvider);
+          }
+        }
+      });
+  print('Connecting to Pusher');
+
   await pusher.connect();
   return pusher;
 }
 
 @riverpod
+class PusherSub extends _$PusherSub {
+  PusherChannel? userChannel;
+  @override
+  Future<void> build() async {
+    final pusher = await ref.watch(pusherProvider.future);
+    final user = ref.watch(authStateProvider).valueOrNull;
+    ref.onCancel(() async {
+      await userChannel?.unsubscribe();
+      userChannel = null;
+    });
+    if (userChannel != null) {
+      await userChannel!.unsubscribe();
+      userChannel = null;
+    }
+    if (user != null) {
+      userChannel = await pusher.subscribe(channelName: user.uid);
+    }
+  }
+}
+
+@riverpod
+Future<(WebSocketChannel, Stream<dynamic>)> binanceWSChannel(Ref ref) async {
+  final channel = WebSocketChannel.connect(
+    Uri.parse(const String.fromEnvironment('BINANCE_WS_URL')),
+  );
+  ref.onDispose(() {
+    print('Closing WebSocket channel');
+    channel.sink.close();
+  });
+  await channel.ready;
+  return (channel, channel.stream.asBroadcastStream());
+}
+
+@riverpod
 Future<Map<String, SymbolInfo>> exchangeInfo(Ref ref) async {
-  final Dio dio = ref.watch(backendDioProvider);
+  final Dio dio = ref.read(backendDioProvider);
   try {
     final response = await dio.get('/exchangeInfo');
     final infos = response.data as List;
@@ -77,19 +125,8 @@ Future<Map<String, SymbolInfo>> exchangeInfo(Ref ref) async {
 
 @riverpod
 class BinanceTickers extends _$BinanceTickers {
-  WebSocketChannel? _channel;
-
   @override
   Future<Map<String, MarketTicker>> build() async {
-    ref.onDispose(() {
-      _closeWebSocket();
-    });
-
-    return _initialize();
-  }
-
-  Future<Map<String, MarketTicker>> _initialize() async {
-    // Fetch initial full state
     final binanceDio = ref.read(binanceDioProvider);
     final response = await binanceDio
         .get('/api/v3/ticker/24hr', queryParameters: {'type': 'MINI'});
@@ -105,23 +142,29 @@ class BinanceTickers extends _$BinanceTickers {
         tickers.map((ticker) => MapEntry(ticker.symbol, ticker)));
   }
 
-  void _connectWebSocket() {
-    _closeWebSocket();
+  Future<void> _connectWebSocket() async {
+    final (channel, stream) = await ref.watch(binanceWSChannelProvider.future);
+    ref.onCancel(() {
+      print('Unsubscribing from all mini tickers');
+      channel.sink.add(json.encode({
+        "method": "UNSUBSCRIBE",
+        "params": ["!miniTicker@arr"],
+        "id": "miniTicker_arr"
+      }));
+    });
 
-    _channel = WebSocketChannel.connect(
-      Uri.parse(
-          '${const String.fromEnvironment('BINANCE_WS_URL')}/!miniTicker@arr'),
-    );
-
-    _channel!.stream.listen((event) async {
+    print('Subscribing to all mini tickers');
+    channel.sink.add(json.encode({
+      "method": "SUBSCRIBE",
+      "params": ["!miniTicker@arr"],
+      "id": "miniTicker_arr"
+    }));
+    stream.listen((event) async {
       final jsonData = jsonDecode(event);
 
-      if (jsonData == 'ping') {
-        _channel!.sink.add('pong');
-        return;
-      }
-
-      if (jsonData is List) {
+      if (jsonData is List &&
+          jsonData.isNotEmpty &&
+          jsonData.first['e'] == '24hrMiniTicker') {
         final previousTickers = await future;
         // Create a new map with existing data
         final updatedTickers = Map<String, MarketTicker>.from(previousTickers);
@@ -138,24 +181,6 @@ class BinanceTickers extends _$BinanceTickers {
         // Update state with merged data
         state = AsyncData(updatedTickers);
       }
-    }, onError: (e) {
-      print('Error in ticker WebSocket: $e');
     });
   }
-
-  void _closeWebSocket() {
-    _channel?.sink.close();
-    _channel = null;
-  }
-
-  // // Optional: Add method to refresh data manually
-  // Future<void> refresh() async {
-  //   state = const AsyncLoading();
-  //   try {
-  //     final fresh = await _initialize();
-  //     state = AsyncData(fresh);
-  //   } catch (e, stack) {
-  //     state = AsyncError(e, stack);
-  //   }
-  // }
 }

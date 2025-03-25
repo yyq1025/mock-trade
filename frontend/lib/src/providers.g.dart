@@ -70,7 +70,7 @@ final authStateProvider = AutoDisposeStreamProvider<User?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthStateRef = AutoDisposeStreamProviderRef<User?>;
-String _$pusherHash() => r'65e36085f4ff2300d68c52d1737495085e062e9a';
+String _$pusherHash() => r'd1a98fa3f3832c715dffd530c7d916aa383effd8';
 
 /// See also [pusher].
 @ProviderFor(pusher)
@@ -87,7 +87,26 @@ final pusherProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PusherRef = AutoDisposeFutureProviderRef<PusherChannelsFlutter>;
-String _$exchangeInfoHash() => r'd262e4dafe082309f711863ded761bc76902fa90';
+String _$binanceWSChannelHash() => r'92e20b1073a8878f85257866d10480b98f08211a';
+
+/// See also [binanceWSChannel].
+@ProviderFor(binanceWSChannel)
+final binanceWSChannelProvider =
+    AutoDisposeFutureProvider<(WebSocketChannel, Stream<dynamic>)>.internal(
+  binanceWSChannel,
+  name: r'binanceWSChannelProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$binanceWSChannelHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef BinanceWSChannelRef
+    = AutoDisposeFutureProviderRef<(WebSocketChannel, Stream<dynamic>)>;
+String _$exchangeInfoHash() => r'8a4e0746d3c298aec2a57b809148628df8239e18';
 
 /// See also [exchangeInfo].
 @ProviderFor(exchangeInfo)
@@ -104,7 +123,22 @@ final exchangeInfoProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ExchangeInfoRef = AutoDisposeFutureProviderRef<Map<String, SymbolInfo>>;
-String _$binanceTickersHash() => r'ab3dbf1d71bb9a2c221f2b94950e181efcbe3dfb';
+String _$pusherSubHash() => r'dd4424010671f3b95891d3aaee2d91ad4a0b17b1';
+
+/// See also [PusherSub].
+@ProviderFor(PusherSub)
+final pusherSubProvider =
+    AutoDisposeAsyncNotifierProvider<PusherSub, void>.internal(
+  PusherSub.new,
+  name: r'pusherSubProvider',
+  debugGetCreateSourceHash:
+      const bool.fromEnvironment('dart.vm.product') ? null : _$pusherSubHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+typedef _$PusherSub = AutoDisposeAsyncNotifier<void>;
+String _$binanceTickersHash() => r'3bd415a27dd54c3d1e0f3823aec9f1891903edcf';
 
 /// See also [BinanceTickers].
 @ProviderFor(BinanceTickers)

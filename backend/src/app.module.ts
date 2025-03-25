@@ -6,7 +6,6 @@ import { AppService } from './app.service';
 import { OrderModule } from './order/order.module';
 import { UserModule } from './user/user.module';
 import { ExchangeInfoModule } from './exchangeInfo/exchangeInfo.module';
-import { BalanceModule } from './balance/balance.module';
 import { PusherModule } from './pusher/pusher.module';
 import { FirebaseModule } from './firebase/firebase.module';
 
@@ -17,7 +16,6 @@ import { FirebaseModule } from './firebase/firebase.module';
     OrderModule,
     UserModule,
     ExchangeInfoModule,
-    BalanceModule,
     PusherModule,
     FirebaseModule,
   ],

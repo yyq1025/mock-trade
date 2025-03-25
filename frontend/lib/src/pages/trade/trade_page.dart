@@ -2,12 +2,13 @@ import 'package:auto_route/auto_route.dart';
 import 'package:decimal/decimal.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mock_trade/src/pages/trade/widgets/kline_chart.dart';
 import 'package:mock_trade/src/providers.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../wallet/providers/balances_provider.dart';
-import 'order_form.dart';
+import 'widgets/order_form.dart';
 import 'providers/open_orders_provider.dart';
 import 'providers/trade_history_provider.dart';
 
@@ -111,11 +112,16 @@ class TradePage extends ConsumerWidget {
                                   style: TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.red),
+                                      color: ticker.lastPrice > ticker.openPrice
+                                          ? Colors.green
+                                          : Colors.red),
                                 ),
                                 Text(
                                   '${ticker.lastPrice - ticker.openPrice} (${(((ticker.lastPrice - ticker.openPrice) * Decimal.fromInt(100)) / ticker.openPrice).toDouble().toStringAsFixed(2)}%)',
-                                  style: TextStyle(color: Colors.red),
+                                  style: TextStyle(
+                                      color: ticker.lastPrice > ticker.openPrice
+                                          ? Colors.green
+                                          : Colors.red),
                                 ),
                               ],
                             ),
@@ -175,10 +181,7 @@ class TradePage extends ConsumerWidget {
                     ),
                   ),
                   SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 400,
-                      child: WebViewWidget(controller: controller),
-                    ),
+                    child: KlineChart(symbol: symbol),
                   ),
                   SliverPersistentHeader(
                     pinned: true,
@@ -217,6 +220,7 @@ class TradePage extends ConsumerWidget {
                         ),
                         onPressed: () {
                           showModalBottomSheet(
+                              elevation: 1,
                               context: context,
                               builder: (context) {
                                 return SizedBox(

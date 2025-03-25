@@ -23,48 +23,43 @@ Future<void> main() async {
   runApp(ProviderScope(child: MyApp()));
 }
 
+class _EagerInitialization extends ConsumerWidget {
+  final Widget child;
+  const _EagerInitialization({required this.child});
+
+  Future<void> _maintainBinanceWSConnection(WidgetRef ref) async {
+    final (channel, stream) = await ref.watch(binanceWSChannelProvider.future);
+    stream.listen((event) {
+      if (json.decode(event) == 'ping') {
+        channel.sink.add('pong');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Eagerly initialize providers by watching them.
+    // By using "watch", the provider will stay alive and not be disposed.
+    ref.watch(pusherSubProvider);
+    _maintainBinanceWSConnection(ref);
+    return child;
+  }
+}
+
 class MyApp extends ConsumerWidget {
   MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.listen(authStateProvider, (previous, user) async {
-      final prevUser = previous?.valueOrNull;
-      final curUser = user.valueOrNull;
-      final pusher = await ref.watch(pusherProvider.future);
-      if (prevUser != null) {
-        pusher.unsubscribe(channelName: prevUser.uid);
-        print('Unsubscribed from channel: ${prevUser.uid}');
-      }
-      if (curUser != null) {
-        pusher.subscribe(
-            channelName: curUser.uid,
-            onEvent: (event) {
-              if (event is PusherEvent) {
-                switch (event.eventName) {
-                  case 'order':
-                    ref.invalidate(openOrdersProvider);
-                    if (jsonDecode(event.data)['status'] == 'FILLED') {
-                      ref.invalidate(tradeHistoryProvider);
-                    }
-                  case 'balance':
-                    ref.invalidate(balancesProvider);
-                  default:
-                    break;
-                }
-              }
-            });
-        print('Subscribed to channel: ${curUser.uid}');
-      }
-    });
-    return MaterialApp.router(
+    return _EagerInitialization(
+        child: MaterialApp.router(
       title: 'Mock Trade',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
       routerConfig: AppRouter(ref).config(),
-    );
+    ));
   }
 }
 
