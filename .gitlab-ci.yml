@@ -20,8 +20,12 @@ build_backend:
   stage: build
   tags:
     - docker
+  image: docker:latest
   services:
     - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
   script:
     - cd backend
     - echo "$CI_DEPLOY_PASSWORD" | docker login $CI_REGISTRY -u $CI_DEPLOY_USER --password-stdin
