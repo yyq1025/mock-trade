@@ -19,11 +19,34 @@ Future<void> main() async {
   runApp(ProviderScope(child: MyApp()));
 }
 
-class _EagerInitialization extends ConsumerWidget {
+class _EagerInitialization extends ConsumerStatefulWidget {
   final Widget child;
   const _EagerInitialization({required this.child});
 
-  Future<void> _maintainBinanceWSConnection(WidgetRef ref) async {
+  @override
+  _EagerInitializationState createState() => _EagerInitializationState();
+}
+
+class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
+  late final AppLifecycleListener _listener;
+  @override
+  void initState() {
+    super.initState();
+    _listener = AppLifecycleListener(
+      onHide: () {
+        ref.invalidate(pusherProvider);
+        ref.invalidate(binanceWSChannelProvider);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _listener.dispose();
+    super.dispose();
+  }
+
+  Future<void> _maintainBinanceWSConnection() async {
     final (channel, stream) = await ref.watch(binanceWSChannelProvider.future);
     stream.listen((event) {
       if (json.decode(event) == 'ping') {
@@ -33,14 +56,35 @@ class _EagerInitialization extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Eagerly initialize providers by watching them.
-    // By using "watch", the provider will stay alive and not be disposed.
+  Widget build(BuildContext context) {
     ref.watch(pusherSubProvider);
-    _maintainBinanceWSConnection(ref);
-    return child;
+    _maintainBinanceWSConnection();
+    return widget.child;
   }
 }
+
+// class _EagerInitialization extends ConsumerWidget {
+//   final Widget child;
+//   const _EagerInitialization({required this.child});
+
+//   Future<void> _maintainBinanceWSConnection(WidgetRef ref) async {
+//     final (channel, stream) = await ref.watch(binanceWSChannelProvider.future);
+//     stream.listen((event) {
+//       if (json.decode(event) == 'ping') {
+//         channel.sink.add('pong');
+//       }
+//     });
+//   }
+
+//   @override
+//   Widget build(BuildContext context, WidgetRef ref) {
+//     // Eagerly initialize providers by watching them.
+//     // By using "watch", the provider will stay alive and not be disposed.
+//     ref.watch(pusherSubProvider);
+//     _maintainBinanceWSConnection(ref);
+//     return child;
+//   }
+// }
 
 class MyApp extends ConsumerWidget {
   MyApp({super.key});

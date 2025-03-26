@@ -70,7 +70,7 @@ final authStateProvider = AutoDisposeStreamProvider<User?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthStateRef = AutoDisposeStreamProviderRef<User?>;
-String _$pusherHash() => r'd1a98fa3f3832c715dffd530c7d916aa383effd8';
+String _$pusherHash() => r'693f1a7f01944d6dbbc2b6177366061a80d93d59';
 
 /// See also [pusher].
 @ProviderFor(pusher)
@@ -87,7 +87,7 @@ final pusherProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef PusherRef = AutoDisposeFutureProviderRef<PusherChannelsFlutter>;
-String _$binanceWSChannelHash() => r'92e20b1073a8878f85257866d10480b98f08211a';
+String _$binanceWSChannelHash() => r'80945de1b15185b99211cda6198056e709f7569e';
 
 /// See also [binanceWSChannel].
 @ProviderFor(binanceWSChannel)

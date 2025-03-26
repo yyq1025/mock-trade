@@ -64,7 +64,7 @@ Future<PusherChannelsFlutter> pusher(Ref ref) async {
         if (event.eventName == 'order') {
           ref.invalidate(openOrdersProvider);
           ref.invalidate(balancesProvider);
-          if (event.data['status'] == 'FILLED') {
+          if (json.decode(event.data)['status'] == 'FILLED') {
             ref.invalidate(tradeHistoryProvider);
           }
         }
@@ -105,6 +105,7 @@ Future<(WebSocketChannel, Stream<dynamic>)> binanceWSChannel(Ref ref) async {
     print('Closing WebSocket channel');
     channel.sink.close();
   });
+  print('Connecting to WebSocket channel');
   await channel.ready;
   return (channel, channel.stream.asBroadcastStream());
 }
