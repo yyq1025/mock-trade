@@ -1,5 +1,5 @@
-variables:
-  GOOGLE_CREDENTIAL_PATH: "gcloud-service-key.json"
+# variables:
+#   GOOGLE_CREDENTIAL_PATH: "gcloud-service-key.json"
 
 stages:
   - build
@@ -26,7 +26,7 @@ build_backend:
     - docker:dind
   script:
     - cd backend
-    - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
+    # - cp $GOOGLE_APPLICATION_CREDENTIALS $GOOGLE_CREDENTIAL_PATH
     - echo "$CI_DEPLOY_PASSWORD" | docker login $CI_REGISTRY -u $CI_DEPLOY_USER --password-stdin
     - docker buildx create --driver docker-container --use
     - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME --push .
@@ -58,6 +58,7 @@ deploy_backend:
       --name backend 
       -p 80:3000 
       --env-file $BACKEND_ENV 
-      -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_CREDENTIAL_PATH 
+      -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
+      --volume $GOOGLE_APPLICATION_CREDENTIALS:$GOOGLE_APPLICATION_CREDENTIALS
       $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
   when: manual
