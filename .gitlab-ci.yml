@@ -5,7 +5,7 @@ stages:
 build_frontend:
   stage: build
   tags:
-    - windows
+    - macos
   script:
     - cd frontend
     - flutter pub get
