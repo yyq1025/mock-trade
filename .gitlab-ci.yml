@@ -5,13 +5,12 @@ stages:
 build_frontend:
   stage: build
   tags:
-    - docker
-  image: ghcr.io/cirruslabs/flutter:latest
+    - windows
   script:
     - cd frontend
     - flutter pub get
     - flutter build web --release --dart-define-from-file=$FRONTEND_ENV
-    - flutter build apk --release --dart-define-from-file=$FRONTEND_ENV --split-per-abi
+    - flutter build apk --release --dart-define-from-file=$FRONTEND_ENV --target-platform android-arm64
   artifacts:
     paths:
       - frontend/build/web/
