@@ -15,7 +15,7 @@ build_frontend:
   artifacts:
     paths:
       - frontend/build/web/
-      - frontend/build/app/outputs/flutter-apk/
+      - frontend/build/app/outputs/flutter-apk/app-release.apk
   when: manual
 
 build_backend:
