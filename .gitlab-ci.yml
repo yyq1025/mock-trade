@@ -11,7 +11,7 @@ build_frontend:
     - cd frontend
     - flutter pub get
     - flutter build web --release --dart-define-from-file=$FRONTEND_ENV
-    - flutter build apk --release --dart-define-from-file=$FRONTEND_ENV --target-platform android-arm64
+    - flutter build apk --release --dart-define-from-file=$FRONTEND_ENV --split-per-abi
   artifacts:
     paths:
       - frontend/build/web/
