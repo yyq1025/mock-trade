@@ -59,6 +59,7 @@ deploy_backend:
     - docker run -d 
       --name backend 
       -p 80:3000 
+      --restart unless-stopped
       --env-file $BACKEND_ENV 
       -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
       --volume $GOOGLE_APPLICATION_CREDENTIALS:$GOOGLE_APPLICATION_CREDENTIALS
