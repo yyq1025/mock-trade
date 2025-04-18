@@ -34,7 +34,6 @@ build_backend:
     - docker buildx build --platform linux/amd64,linux/arm64 -t $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME --push .
   when: manual
 
-
 pages:
   stage: deploy
   dependencies:
@@ -56,11 +55,11 @@ deploy_backend:
     - docker pull $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
     - docker stop backend || true
     - docker rm backend || true
-    - docker run -d 
-      --name backend 
-      -p 80:3000 
-      --restart unless-stopped
-      --env-file $BACKEND_ENV 
+    - docker run -d
+      --name backend
+      -p 80:3000
+      --restart always
+      --env-file $BACKEND_ENV
       -e GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS
       --volume $GOOGLE_APPLICATION_CREDENTIALS:$GOOGLE_APPLICATION_CREDENTIALS
       $CI_REGISTRY_IMAGE/backend:$CI_COMMIT_REF_NAME
